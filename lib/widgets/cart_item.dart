@@ -38,6 +38,43 @@ class CartItem extends StatelessWidget {
       ),
       // to restrict the direction of the deletion | Right --to--> Left
       direction: DismissDirection.endToStart,
+      // it returns a Future
+      confirmDismiss: (direction) {
+        // show dialog return a Future after the dialog is closed
+        return showDialog(
+          // the ctx on the right refers to context of the build method
+          context: context,
+          // the builder gives you it's own context as all builders do
+          builder: (ctx) => AlertDialog(
+            title: Text('Are you sure?'),
+            content: Text(
+              'Do you want to remove the item from the cart?',
+            ),
+            actions: <Widget>[
+              FlatButton(
+                child: Text('No'),
+                // Here we can control what the Futuure resolves to, by calling Navigator.pop  ===> hover on showDialog to see more tips(just before: "State Restoration in Dialogs")
+                onPressed: () {
+                  // use the context that the above builder that gives us
+                  /*  this will close the dialog, and we also can forward a vzalue, [that's optionall],
+                      but we want to do that becuse we want to yield a value with our future in the end.
+                      - If the user chose NO we don't want to dismiss, So we don't want to confirm the Dismissable
+                      - See the Yes button down there!
+                      */
+                  Navigator.of(ctx).pop(false);
+                },
+              ),
+              FlatButton(
+                child: Text('Yes'),
+                onPressed: () {
+                  // Here the opposite is true
+                  Navigator.of(ctx).pop(true);
+                },
+              ),
+            ],
+          ),
+        );
+      },
       // to define what whould happen based on the direction you getting here as an argument
       onDismissed: (direction) {
         Provider.of<Cart>(context, listen: false).removeItem(productId);

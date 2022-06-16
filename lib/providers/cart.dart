@@ -78,6 +78,27 @@ class Cart with ChangeNotifier {
     notifyListeners();
   }
 
+  void removeSingleItem(String productId) {
+    // checking whether the productId is NOT part of the cart !
+    if (!_items.containsKey(productId)) {
+      return; // do nothing
+    }
+    // if it's greater than 1 reduce the quantity, and if it = 1 I want to remove the entire entry from the map
+    if (_items[productId].quantity > 1) {
+      _items.update(
+          productId,
+          (existingCartItem) => CartItem(
+                id: existingCartItem.id,
+                title: existingCartItem.title,
+                price: existingCartItem.price,
+                quantity: existingCartItem.quantity - 1,
+              ));
+    } else {
+      _items.remove(productId);
+    }
+    notifyListeners();
+  }
+
   // placing an order means we have to clear/remove the cart because we ordered all the elements
   void clear() {
     _items = {};

@@ -87,10 +87,42 @@ class Products with ChangeNotifier {
     notifyListeners();
   }
   */
-  void addProducts() {
-    // _items.add(value);
+
+  //
+  void addProducts(Product product) {
+    final newProduct = Product(
+      title: product.title,
+      description: product.description,
+      price: product.price,
+      imageUrl: product.imageUrl,
+      // to have a unique ID for now
+      id: DateTime.now().toString(),
+    );
+    // add it to our _items
+    _items.add(newProduct);
+    // Alternatively: to add it at the beginning of the list
+    // _items.insert(0, newProduct); // at the start of the list
 
     // to tell all (the listeners/ the interested widgets) about new data changings
     notifyListeners();
+  }
+
+  // Removing a product
+  void deleteProduct(String id) {
+    // execute a FN on every product there
+    // and if it returns true, it's a product that should be removed.
+    //and we will return true if the ID of the product we're looking at in our list of products is equal to the ID we're getting here as an argument
+    _items.removeWhere((prod) => prod.id == id);
+    notifyListeners();
+  }
+
+  void updateProduct(String id, Product newProduct) {
+    final prodIndex = _items.indexWhere((prod) => prod.id == id);
+    if (prodIndex >= 0) {
+      _items[prodIndex] = newProduct;
+      notifyListeners();
+    } else {
+      print('...');
+    }
   }
 }

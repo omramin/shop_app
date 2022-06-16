@@ -80,9 +80,12 @@ class ProductItem extends StatelessWidget {
             // this will never rebuild when the consumer rebuild!, if u don't need it the u use [ _ ]
             // child: Text('The text that\'s NEVER change!'),
           ),
-          title: Text(
-            product.title,
-            textAlign: TextAlign.center,
+          // to make the text forcfully visible even if it too long
+          title: FittedBox(
+            child: Text(
+              product.title,
+              textAlign: TextAlign.center,
+            ),
           ),
           trailing: IconButton(
             icon: Icon(
@@ -90,6 +93,22 @@ class ProductItem extends StatelessWidget {
             ),
             onPressed: () {
               cart.addItem(product.id, product.price, product.title);
+              // to hide the current SnackBar
+              Scaffold.of(context).hideCurrentSnackBar();
+              Scaffold.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Added item to cart!',
+                  ),
+                  duration: Duration(seconds: 2),
+                  action: SnackBarAction(
+                    label: 'UNDO',
+                    onPressed: () {
+                      cart.removeSingleItem(product.id);
+                    },
+                  ),
+                ),
+              );
             },
             color: Theme.of(context).accentColor,
           ),
