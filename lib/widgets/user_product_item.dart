@@ -14,6 +14,9 @@ class UserProductItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // to fix the not showing of the snackBar coz we do it there inside the future and [.of(context)] can't be resolved anymore due how the flutter work internally
+    // It's already updating the widget tree at this point of time and therefore it's not sure whether a context still refers to the same context it did before
+    final scaffold = Scaffold.of(context);
     // Defining how a single item should look like
     return ListTile(
       title: Text(title),
@@ -41,9 +44,22 @@ class UserProductItem extends StatelessWidget {
             // Deleting the product
             IconButton(
               icon: Icon(Icons.delete),
-              onPressed: () {
-                //
-                Provider.of<Products>(context, listen: false).deleteProduct(id);
+              // turning it to a async FN so that it can work with this future behind the scenes
+              onPressed: () async {
+                // #See the Delete method in [products.dart file]. ---> Handling the error Gracefully
+                try {
+                  await Provider.of<Products>(context, listen: false)
+                      .deleteProduct(id);
+                } catch (error) {
+                  scaffold.showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Deleting Failed !',
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  );
+                }
               },
               color: Theme.of(context).errorColor,
             ),

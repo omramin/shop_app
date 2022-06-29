@@ -35,24 +35,17 @@ class CartScreen extends StatelessWidget {
                   Spacer(),
                   Chip(
                     label: Text(
-                      '\$${cart.totalAmount}',
+                      '\$${cart.totalAmount.toStringAsFixed(2)}',
                       style: TextStyle(
-                        color: Theme.of(context).primaryTextTheme.title.color,
+                        // color: Theme.of(context).primaryTextTheme.title.color, went wrong
+                        color:
+                            Theme.of(context).primaryTextTheme.titleLarge.color,
                       ),
                     ),
                     backgroundColor: Theme.of(context).primaryColor,
                   ),
-                  FlatButton(
-                    child: Text('ORDER NOW'),
-                    onPressed: () {
-                      // to convert it to a list instead of passing the whole map
-                      Provider.of<Orders>(context, listen: false).addOrder(
-                          cart.items.values.toList(), cart.totalAmount);
-                      // to clear the cart
-                      cart.clear();
-                    },
-                    textColor: Theme.of(context).primaryColor,
-                  )
+                  // -----------------> Extracted
+                  OrderButton(cart: cart)
                 ],
               ),
             ),
@@ -74,6 +67,51 @@ class CartScreen extends StatelessWidget {
           )
         ],
       ),
+    );
+  }
+}
+
+class OrderButton extends StatefulWidget {
+  const OrderButton({
+    Key key,
+    @required this.cart,
+  }) : super(key: key);
+
+  final Cart cart;
+
+  @override
+  State<OrderButton> createState() => _OrderButtonState();
+}
+
+class _OrderButtonState extends State<OrderButton> {
+  // #spinner# later we'll set it to TRUE in the setState() to update the UI
+  var _isLoading = false;
+  @override
+  Widget build(BuildContext context) {
+    return FlatButton(
+      // #spinner#   | Showing a loading spinner instead of the Text()
+      child: _isLoading ? CircularProgressIndicator() : Text('ORDER NOW'),
+      // Disable the button if we have nothing to order (if the total amount <= 0) OR whilst we're loading
+      onPressed: (widget.cart.totalAmount <= 0 || _isLoading)
+          ? null
+          : () async {
+              // #async --> #spinner
+              setState(() {
+                _isLoading = true;
+              });
+              // to convert it to a list instead of passing the whole map
+              await Provider.of<Orders>(context, listen: false).addOrder(
+                  // #await ----> #spinner | We'll await before we clear the cart  #001-->
+                  widget.cart.items.values.toList(),
+                  widget.cart.totalAmount);
+              // --> 001# and also before we reset the _isLoading state
+              setState(() {
+                _isLoading = false;
+              });
+              // to clear the cart
+              widget.cart.clear();
+            },
+      textColor: Theme.of(context).primaryColor,
     );
   }
 }

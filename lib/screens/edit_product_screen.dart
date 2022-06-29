@@ -45,6 +45,8 @@ class _EditProductScreenState extends State<EditProductScreen> {
 
   // to make sure that I don't run this too often
   var _isInit = true;
+  // #4# spinner#
+  var _isLoading = false;
 
 /*=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-*/
 
@@ -101,8 +103,9 @@ class _EditProductScreenState extends State<EditProductScreen> {
    - how to interact with the FORM widget from inside this method? how to get a direct access to the form widget?
    - You can use a global key [We use keys when we need to interact with a widget from inside our code]
   */
-  void _saveForm() {
-    // [_form.currentState.validate()] will erturn TRUE if there is no error. And will return false if at least one validator returns a string and hence it has an error
+  // void _saveForm() { #replaced with [Future<void> _saveForm() async { ]
+  Future<void> _saveForm() async {
+    // [_form.currentState.validate()] will erturn TRUE if there is no error. And will return false if at least one validator return a string and hence it has an error
     final isValid = _form.currentState.validate();
     if (!isValid) {
       // to cancel the FN execution
@@ -112,6 +115,10 @@ class _EditProductScreenState extends State<EditProductScreen> {
       take the value entered into the text from field
     */
     _form.currentState.save();
+    // #5# spinner# to reflect the change on the user interface, and make it again false when we done
+    setState(() {
+      _isLoading = true;
+    });
     // print(_editedProduct.title);
     // print(_editedProduct.description);
     // print(_editedProduct.price);
@@ -119,18 +126,66 @@ class _EditProductScreenState extends State<EditProductScreen> {
 
     /* checking if the _editedProduct has an ID
      * This ID is only set if we loaded a product 
-     * If it not equal to null then we updating an existing product
+     * If it is not equal to null then we updating an existing product
      */
     if (_editedProduct.id != null) {
-      Provider.of<Products>(context, listen: false)
+      await Provider.of<Products>(context, listen: false)
           .updateProduct(_editedProduct.id, _editedProduct);
+      // // #6# spinner# make it false again when we done right before we pop
+      // // #moved outside the if-else  = $v16
+      // setState(() {
+      //   _isLoading = true;
+      // });
+      // Navigator.of(context).pop();
     } else {
-      Provider.of<Products>(context, listen: false).addProducts(_editedProduct);
+      try {
+        //#2# spinner# we now have a future returned here by [addProduct] FN, now we can call [then] FN
+        await Provider.of<Products>(context, listen: false)
+            .addProduct(_editedProduct);
+      } catch (error) {
+        /* #3# error# printing the error
+        context: the default context available everywhere in the state class| builder: to build the dialog, and it takes it's own context named [ctx]
+        #4# error# to wait until the user answered the dialog we'll return the [showDialog] (return showDialog ) coz it also returns a future
+        When the user click the btn of the dialog (poping the dialog) it's future will be resolved, since we return a future there in [catchError] 
+        - the [then] block after the [catchError] will be executed only after the dialog was closed.
+        */
+        // we want to await for this result befor we continue to the finally block
+        await showDialog<Null>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+                  title: Text('An error occured!'),
+                  // we could also print the error
+                  // content: Text(error.toString()),
+                  content: Text('Something went wrong.'),
+                  actions: [
+                    FlatButton(
+                      child: Text('Okay'),
+                      onPressed: () {
+                        // to close the dialog | passing the context passed by tyhe builder
+                        Navigator.of(ctx).pop();
+                      },
+                    ),
+                  ],
+                ));
+      }
+      // ----> We commented it coz we moved the setState and the pop outside the if block
+      // finally {
+      //   // finall block runs no matter what happened
+      //   // #6# spinner# make it false again when we done right before we pop
+      //   setState(() {
+      //     _isLoading = true;
+      //   });
+      //   Navigator.of(context).pop();
+      // }
     }
+    // #Moved: moved outside here from if-else
+    // This code will only run IF the [update] or the [addProduct] or the [showDialog] IS DONE !
+    setState(() {
+      _isLoading = true;
+    });
     Navigator.of(context).pop();
-
-    // _editedProduct contains all the data we're gathering
-    Provider.of<Products>(context, listen: false).addProducts(_editedProduct);
+    // #3#spinner# we make the pop inside the [then] to only pop once we done
+    // Navigator.of(context).pop();
   }
 
   // You have to Dispose FocusNode variables to make sure they won't stick around in memory and could lead to memory leak
@@ -163,167 +218,103 @@ class _EditProductScreenState extends State<EditProductScreen> {
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          // creating the connection
-          key: _form,
-          // to build a scrollable list of input elements | ListView is automatically scrollable
-          child: ListView(
-            children: <Widget>[
-              TextFormField(
-                initialValue: _initValues['title'],
-                // gives you a lot of configuration options to change the appearance
-                decoration: InputDecoration(
-                  // The hint text that shown above the input
-                  labelText: 'Title',
-                ),
-                // To control what the bottom right button in the soft keyboard will show, i.e: checkmark, or a done or a next icon
-                // to move to the next input field
-                textInputAction: TextInputAction.next,
-                // fired whenever the next btn on the keyboard is pressed | we're not interested in the value so we used ' _ '
-                onFieldSubmitted: (_) {
-                  // using the focusNode to move the focus to the second input field
-                  FocusScope.of(context).requestFocus(_priceFocusNode);
-                },
-                onSaved: (value) {
-                  // Creating a product which takes all the old values of the existing added product and overrides the one value for which this text form field was responsible
-                  _editedProduct = Product(
-                      title: value,
-                      price: _editedProduct.price,
-                      description: _editedProduct.description,
-                      imageUrl: _editedProduct.imageUrl,
-                      id: _editedProduct.id,
-                      isFavorite: _editedProduct.isFavorite);
-                },
-                /** Validator
+      // #7# spinner# checking if [_isLoading] is true to render the loading #spinner. | or false to render the padding with our form
+      body: _isLoading
+          ? Center(
+              // #8# spinner: finally, the spinner widget!
+              child: CircularProgressIndicator(),
+            )
+          : Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Form(
+                // creating the connection
+                key: _form,
+                // to build a scrollable list of input elements | ListView is automatically scrollable
+                child: ListView(
+                  children: <Widget>[
+                    TextFormField(
+                      initialValue: _initValues['title'],
+                      // gives you a lot of configuration options to change the appearance
+                      decoration: InputDecoration(
+                        // The hint text that shown above the input
+                        labelText: 'Title',
+                      ),
+                      // To control what the bottom right button in the soft keyboard will show, i.e: checkmark, or a done or a next icon
+                      // to move to the next input field
+                      textInputAction: TextInputAction.next,
+                      // fired whenever the next btn on the keyboard is pressed | we're not interested in the value so we used ' _ '
+                      onFieldSubmitted: (_) {
+                        // using the focusNode to move the focus to the second input field
+                        FocusScope.of(context).requestFocus(_priceFocusNode);
+                      },
+                      onSaved: (value) {
+                        // Creating a product which takes all the old values of the existing added product and overrides the one value for which this text form field was responsible
+                        _editedProduct = Product(
+                            title: value,
+                            price: _editedProduct.price,
+                            description: _editedProduct.description,
+                            imageUrl: _editedProduct.imageUrl,
+                            id: _editedProduct.id,
+                            isFavorite: _editedProduct.isFavorite);
+                      },
+                      /** Validator
                  * Takes the entered value and returns a String.
                  * Executed #1 when you call a specific validate method ---> [the default]
                  *  #2 When you set autovalidate to TRUE, then it will validate on every keystrok
                 */
-                validator: (value) {
-                  if (value.isEmpty) {
-                    return 'Please enter a title';
-                  }
-                  // there's no error, the input is correct
-                  return null;
-                },
-              ),
-              TextFormField(
-                initialValue: _initValues['price'],
-                decoration: InputDecoration(labelText: 'Price'),
-                textInputAction: TextInputAction.next,
-                keyboardType: TextInputType.number,
-                focusNode: _priceFocusNode,
-                validator: (value) {
-                  if (value.isEmpty) {
-                    return 'Please enter a price.';
-                  }
-                  // -Checking if the user entered a valid number.| -tryParse return a null if it fails
-                  if (double.tryParse(value) == null) {
-                    return 'Please enter a valid number.';
-                  }
-                  // a valid price should be above Zero
-                  if (double.parse(value) <= 0) {
-                    return 'Please enter a number greater than zero.';
-                  }
-                  // then we have a valid number
-                  return null;
-                },
-                onSaved: (value) {
-                  _editedProduct = Product(
-                      title: _editedProduct.title,
-                      price: double.parse(value),
-                      description: _editedProduct.description,
-                      imageUrl: _editedProduct.imageUrl,
-                      id: _editedProduct.id,
-                      isFavorite: _editedProduct.isFavorite);
-                },
-              ),
-              TextFormField(
-                initialValue: _initValues['description'],
-                decoration: InputDecoration(labelText: 'Description'),
-                // to make suited for a longer inputs
-                maxLines: 3,
-                // to make the keyboard gives us an Enter sympol on the bottom right corner of the soft keyboard
-                keyboardType: TextInputType.multiline,
-                focusNode: _descriptionFocusNode,
-                validator: (value) {
-                  if (value.isEmpty) {
-                    return 'Please enter a description.';
-                  }
-                  if (value.length < 5) {
-                    return 'Should be at least 5 characters long.';
-                  }
-                  return null;
-                },
-                onSaved: (value) {
-                  _editedProduct = Product(
-                      title: _editedProduct.title,
-                      price: _editedProduct.price,
-                      description: value,
-                      imageUrl: _editedProduct.imageUrl,
-                      id: _editedProduct.id,
-                      isFavorite: _editedProduct.isFavorite);
-                },
-              ),
-              //
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: <Widget>[
-                  // To preview the image
-                  Container(
-                    width: 100,
-                    height: 100,
-                    margin: EdgeInsets.only(
-                      top: 8,
-                      right: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      border: Border.all(
-                        width: 1,
-                        color: Colors.grey,
-                      ),
-                    ),
-                    // Checking if the imgUrlController is empty ! => to return either the img or an alert
-                    child: _imageUrlController.text.isEmpty
-                        ? Text('Enter a URL')
-                        : FittedBox(
-                            child: Image.network(
-                              _imageUrlController.text,
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-                  ),
-                  // coz the TextFormField takes as much width as it can get
-                  Expanded(
-                    child: TextFormField(
-                      // initialValue: _initValues['imageUrl'],  =====> If you have a controller YOU CAN'T SETUP an INITIAL VALUE
-                      decoration: InputDecoration(labelText: 'Image URL'),
-                      keyboardType: TextInputType.url,
-                      textInputAction: TextInputAction.done,
-                      // coz we want to access the image URL before the form is submitted
-                      controller: _imageUrlController,
-                      // we use it when the user unselect it
-                      focusNode: _imageUrlFocusNode,
-                      // onFieldSubmitted expects a FN that takes a string value
-                      // we don't care about the value | Triggered when the done button is pressed on the soft keyboard
-                      onFieldSubmitted: (_) {
-                        // To execute the FN when the DONE btn is pressed
-                        _saveForm();
-                      },
                       validator: (value) {
                         if (value.isEmpty) {
-                          return 'Please enter an image URL.';
+                          return 'Please enter a title';
                         }
-                        if (!value.startsWith('http') &&
-                            !value.startsWith('https')) {
-                          return 'Please enter a valid URL.';
+                        // there's no error, the input is correct
+                        return null;
+                      },
+                    ),
+                    TextFormField(
+                      initialValue: _initValues['price'],
+                      decoration: InputDecoration(labelText: 'Price'),
+                      textInputAction: TextInputAction.next,
+                      keyboardType: TextInputType.number,
+                      focusNode: _priceFocusNode,
+                      validator: (value) {
+                        if (value.isEmpty) {
+                          return 'Please enter a price.';
                         }
-                        if (!value.endsWith('.png') &&
-                            !value.endsWith('.jpg') &&
-                            !value.endsWith('.jpeg')) {
-                          return 'Please enter a valid image URL.';
+                        // -Checking if the user entered a valid number.| -tryParse return a null if it fails
+                        if (double.tryParse(value) == null) {
+                          return 'Please enter a valid number.';
+                        }
+                        // a valid price should be above Zero
+                        if (double.parse(value) <= 0) {
+                          return 'Please enter a number greater than zero.';
+                        }
+                        // then we have a valid number
+                        return null;
+                      },
+                      onSaved: (value) {
+                        _editedProduct = Product(
+                            title: _editedProduct.title,
+                            price: double.parse(value),
+                            description: _editedProduct.description,
+                            imageUrl: _editedProduct.imageUrl,
+                            id: _editedProduct.id,
+                            isFavorite: _editedProduct.isFavorite);
+                      },
+                    ),
+                    TextFormField(
+                      initialValue: _initValues['description'],
+                      decoration: InputDecoration(labelText: 'Description'),
+                      // to make suited for a longer inputs
+                      maxLines: 3,
+                      // to make the keyboard gives us an Enter sympol on the bottom right corner of the soft keyboard
+                      keyboardType: TextInputType.multiline,
+                      focusNode: _descriptionFocusNode,
+                      validator: (value) {
+                        if (value.isEmpty) {
+                          return 'Please enter a description.';
+                        }
+                        if (value.length < 5) {
+                          return 'Should be at least 5 characters long.';
                         }
                         return null;
                       },
@@ -331,19 +322,89 @@ class _EditProductScreenState extends State<EditProductScreen> {
                         _editedProduct = Product(
                             title: _editedProduct.title,
                             price: _editedProduct.price,
-                            description: _editedProduct.description,
-                            imageUrl: value,
+                            description: value,
+                            imageUrl: _editedProduct.imageUrl,
                             id: _editedProduct.id,
                             isFavorite: _editedProduct.isFavorite);
                       },
                     ),
-                  ),
-                ],
+                    //
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: <Widget>[
+                        // To preview the image
+                        Container(
+                          width: 100,
+                          height: 100,
+                          margin: EdgeInsets.only(
+                            top: 8,
+                            right: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              width: 1,
+                              color: Colors.grey,
+                            ),
+                          ),
+                          // Checking if the imgUrlController is empty ! => to return either the img or an alert
+                          child: _imageUrlController.text.isEmpty
+                              ? Text('Enter a URL')
+                              : FittedBox(
+                                  child: Image.network(
+                                    _imageUrlController.text,
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                        ),
+                        // #fix# coz the TextFormField takes as much width as it can get
+                        Expanded(
+                          child: TextFormField(
+                            // initialValue: _initValues['imageUrl'],  =====> If you have a controller YOU CAN'T SETUP an INITIAL VALUE
+                            decoration: InputDecoration(labelText: 'Image URL'),
+                            keyboardType: TextInputType.url,
+                            textInputAction: TextInputAction.done,
+                            // coz we want to access the image URL before the form is submitted
+                            controller: _imageUrlController,
+                            // we use it when the user unselect it
+                            focusNode: _imageUrlFocusNode,
+                            // onFieldSubmitted expects a FN that takes a string value
+                            // we don't care about the value | Triggered when the done button is pressed on the soft keyboard
+                            onFieldSubmitted: (_) {
+                              // To execute the FN when the DONE btn is pressed
+                              _saveForm();
+                            },
+                            validator: (value) {
+                              if (value.isEmpty) {
+                                return 'Please enter an image URL.';
+                              }
+                              if (!value.startsWith('http') &&
+                                  !value.startsWith('https')) {
+                                return 'Please enter a valid URL.';
+                              }
+                              if (!value.endsWith('.png') &&
+                                  !value.endsWith('.jpg') &&
+                                  !value.endsWith('.jpeg')) {
+                                return 'Please enter a valid image URL.';
+                              }
+                              return null;
+                            },
+                            onSaved: (value) {
+                              _editedProduct = Product(
+                                  title: _editedProduct.title,
+                                  price: _editedProduct.price,
+                                  description: _editedProduct.description,
+                                  imageUrl: value,
+                                  id: _editedProduct.id,
+                                  isFavorite: _editedProduct.isFavorite);
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ],
-          ),
-        ),
-      ),
+            ),
     );
   }
 }

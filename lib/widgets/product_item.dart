@@ -81,11 +81,9 @@ class ProductItem extends StatelessWidget {
             // child: Text('The text that\'s NEVER change!'),
           ),
           // to make the text forcfully visible even if it too long
-          title: FittedBox(
-            child: Text(
-              product.title,
-              textAlign: TextAlign.center,
-            ),
+          title: Text(
+            product.title,
+            textAlign: TextAlign.center,
           ),
           trailing: IconButton(
             icon: Icon(
